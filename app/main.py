@@ -32,16 +32,13 @@ app = FastAPI(
     debug=True  # Enable debug mode
 )
 
-@app.get("/test")
-async def test_route():
-    return {"status": "ok", "message": "PayZen API is working!"}
+# Mount static directory
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Get the absolute path to the static and templates directories
 STATIC_DIR = str(pathlib.Path(__file__).parent / "static")
 TEMPLATES_DIR = str(pathlib.Path(__file__).parent / "templates")
-
-# Mount static files
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Templates configuration
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
