@@ -20,7 +20,8 @@ IS_PRODUCTION = os.environ.get('VERCEL') == '1'
 if IS_PRODUCTION:
     # Use PostgreSQL in production (Vercel)
     password = quote_plus("Valar9876@")  # URL encode the password
-    DATABASE_URL = f"postgresql://postgres:{password}@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres"
+    # Force IPv4 by using the host IP instead of domain name
+    DATABASE_URL = f"postgresql://postgres:{password}@34.87.166.243:5432/postgres"
 else:
     # Use SQLite in development
     DATABASE_URL = "sqlite:///./test.db"
@@ -46,10 +47,6 @@ def get_engine(retries=3):
                     connect_args={
                         "sslmode": "require",  # Force SSL connection
                         "connect_timeout": "30",  # Connection timeout in seconds
-                        "keepalives": "1",  # Enable TCP keepalive
-                        "keepalives_idle": "60",  # Idle time before sending keepalive
-                        "keepalives_interval": "10",  # Interval between keepalives
-                        "keepalives_count": "3",  # Number of keepalive retries
                         "application_name": "vercel_serverless"  # Identify the application
                     }
                 )
