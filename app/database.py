@@ -12,9 +12,10 @@ IS_PRODUCTION = os.environ.get('VERCEL', False)
 
 if IS_PRODUCTION:
     # Use PostgreSQL in production (Vercel)
-    DATABASE_URL = os.environ.get('POSTGRES_URL')
+    # Try both environment variable names
+    DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
     if not DATABASE_URL:
-        raise ValueError("POSTGRES_URL environment variable not set in production")
+        raise ValueError("Neither DATABASE_URL nor POSTGRES_URL environment variable is set in production")
 else:
     # Use SQLite in development
     DATABASE_URL = "sqlite:///./test.db"
@@ -32,7 +33,10 @@ else:
         max_overflow=0,  # Disable overflow connections
         pool_timeout=30,  # Connection timeout in seconds
         pool_recycle=1800,  # Recycle connections every 30 minutes
-        pool_pre_ping=True  # Enable connection health checks
+        pool_pre_ping=True,  # Enable connection health checks
+        connect_args={
+            "sslmode": "require"  # Force SSL mode for Vercel deployment
+        }
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
