@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 from . import models, auth, email_utils
 from .database import get_engine, get_session_local
+from .auth import get_db_session
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, ConfigDict
 import re
