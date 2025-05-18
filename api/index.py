@@ -71,5 +71,10 @@ except Exception as e:
     async def healthcheck():
         return {"status": "error", "error": error_message}
 
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("api.index:app", host="0.0.0.0", port=port, reload=True)
+
 # This file is specifically for Vercel deployment
 # It imports our FastAPI app from the main application file 
