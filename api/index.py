@@ -7,7 +7,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from api.main import app
+    from app.main import app
 except Exception as e:
     app = FastAPI()
     

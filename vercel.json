@@ -2,11 +2,11 @@
     "version": 2,
     "builds": [
         {
-            "src": "run.py",
+            "src": "app/main.py",
             "use": "@vercel/python",
             "config": {
                 "maxLambdaSize": "15mb",
-                "runtime": "python3.11"
+                "runtime": "python3.9"
             }
         },
         {
@@ -21,15 +21,13 @@
         },
         {
             "src": "/(.*)",
-            "dest": "run.py"
+            "dest": "app/main.py"
         }
     ],
     "env": {
-        "APP_MODULE": "app.main:app",
         "PYTHONPATH": ".",
-        "PYTHON_VERSION": "3.11",
+        "PYTHON_VERSION": "3.9",
         "VERCEL": "1",
-        "DATABASE_URL": "postgresql://postgres:Valar9876%40@34.87.166.243:5432/postgres",
         "DB_HOST": "34.87.166.243",
         "DB_PORT": "5432",
         "DB_NAME": "postgres",
