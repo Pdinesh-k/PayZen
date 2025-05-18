@@ -12,19 +12,20 @@ IS_PRODUCTION = os.environ.get('VERCEL', False)
 
 if IS_PRODUCTION:
     # Use PostgreSQL in production (Vercel)
-    # Try both environment variable names
-    DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
-    if not DATABASE_URL:
-        # Fallback to constructing URL from components
-        db_user = os.environ.get('POSTGRES_USER', 'postgres')
-        db_password = os.environ.get('POSTGRES_PASSWORD', 'Valar9876')
-        db_host = os.environ.get('POSTGRES_HOST', 'db.yaegkkmbsxqpbjmjdqwu.supabase.co')
-        db_port = os.environ.get('POSTGRES_PORT', '5432')
-        db_name = os.environ.get('POSTGRES_DATABASE', 'postgres')
-        
-        DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    # Get database credentials from environment variables or use defaults
+    db_user = os.environ.get('POSTGRES_USER', 'postgres')
+    db_password = os.environ.get('POSTGRES_PASSWORD')  # This should be set in environment variables
+    db_host = os.environ.get('POSTGRES_HOST', 'db.yaegkkmbsxqpbjmjdqwu.supabase.co')
+    db_port = os.environ.get('POSTGRES_PORT', '5432')
+    db_name = os.environ.get('POSTGRES_DATABASE', 'postgres')
     
-    # Ensure SSL mode is set
+    # Construct Supabase connection string
+    if not db_password:
+        raise ValueError("Database password must be set in environment variables")
+    
+    DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    
+    # Add required SSL mode for Supabase
     if '?' not in DATABASE_URL:
         DATABASE_URL += "?sslmode=require"
     elif 'sslmode=' not in DATABASE_URL:
@@ -42,13 +43,14 @@ else:
     # PostgreSQL configuration with proper connection pooling for serverless
     engine = create_engine(
         DATABASE_URL,
-        pool_size=1,  # Minimum pool size
+        pool_size=20,  # Increased pool size for better performance
         max_overflow=0,  # Disable overflow connections
         pool_timeout=30,  # Connection timeout in seconds
         pool_recycle=1800,  # Recycle connections every 30 minutes
         pool_pre_ping=True,  # Enable connection health checks
         connect_args={
-            "sslmode": "require"  # Force SSL mode for Vercel deployment
+            "sslmode": "require",  # Force SSL mode for Supabase
+            "connect_timeout": 60  # Increase connection timeout
         }
     )
 
