@@ -2,13 +2,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Determine if we're running on Vercel
 IS_PRODUCTION = os.environ.get('VERCEL', False)
 
 if IS_PRODUCTION:
     # Use PostgreSQL in production (Vercel)
-    DATABASE_URL = os.environ.get('DATABASE_URL', "postgresql://postgres:Valar9876@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres?sslmode=require")
+    DATABASE_URL = os.environ.get('POSTGRES_URL')
+    if not DATABASE_URL:
+        raise ValueError("POSTGRES_URL environment variable not set in production")
 else:
     # Use SQLite in development
     DATABASE_URL = "sqlite:///./test.db"
@@ -19,14 +25,14 @@ if DATABASE_URL.startswith("sqlite"):
         DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
+    # PostgreSQL configuration with proper connection pooling for serverless
     engine = create_engine(
         DATABASE_URL,
-        pool_size=1,  # Minimum pool size for serverless
+        pool_size=1,  # Minimum pool size
         max_overflow=0,  # Disable overflow connections
         pool_timeout=30,  # Connection timeout in seconds
         pool_recycle=1800,  # Recycle connections every 30 minutes
-        pool_pre_ping=True,  # Enable connection health checks
-        connect_args={"sslmode": "require"}  # Enable SSL mode for secure connection
+        pool_pre_ping=True  # Enable connection health checks
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

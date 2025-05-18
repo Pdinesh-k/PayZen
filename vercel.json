@@ -18,7 +18,6 @@
     ],
     "env": {
         "APP_MODULE": "app.main:app",
-        "PYTHONPATH": ".",
-        "DATABASE_URL": "postgresql://postgres:Valar9876@@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres?sslmode=require"
+        "PYTHONPATH": "."
     }
 } 
