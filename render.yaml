@@ -12,6 +12,24 @@ services:
         value: .
       - key: PORT
         value: 8000
+      - key: RENDER
+        value: 1
+      - key: DB_HOST
+        value: 34.87.166.243
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASSWORD
+        value: Valar9876@
+      - key: DB_CONNECTION_TIMEOUT
+        value: 5
+      - key: DB_MAX_RETRIES
+        value: 3
+      - key: DB_RETRY_INTERVAL
+        value: 1
     healthCheckPath: /api/healthcheck
     plan: free
     autoDeploy: true 

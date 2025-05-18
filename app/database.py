@@ -11,24 +11,19 @@ import psycopg2
 from contextlib import contextmanager
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
-# Determine if we're running on Vercel
-IS_PRODUCTION = os.environ.get('VERCEL') == '1'
-
-# Get database configuration from environment variables
-DB_CONNECTION_TIMEOUT = int(os.environ.get('DB_CONNECTION_TIMEOUT', '5'))
-DB_MAX_RETRIES = int(os.environ.get('DB_MAX_RETRIES', '3'))
-DB_RETRY_INTERVAL = int(os.environ.get('DB_RETRY_INTERVAL', '1'))
+# Determine if we're running on Vercel or Render
+IS_PRODUCTION = os.environ.get('VERCEL') == '1' or os.environ.get('RENDER') == '1'
 
 def get_db_url():
     """Get database URL based on environment"""
     if IS_PRODUCTION:
-        # Use PostgreSQL in production (Vercel)
+        # Use PostgreSQL in production
         password = quote_plus(os.environ.get('DB_PASSWORD', 'Valar9876@'))
         host = os.environ.get('DB_HOST', '34.87.166.243')
         user = os.environ.get('DB_USER', 'postgres')
@@ -42,8 +37,8 @@ def get_db_url():
 def wait_for_db(max_retries=None, retry_interval=None):
     """Wait for database to become available"""
     retries = 0
-    max_retries = max_retries or DB_MAX_RETRIES
-    retry_interval = retry_interval or DB_RETRY_INTERVAL
+    max_retries = max_retries or int(os.environ.get('DB_MAX_RETRIES', '3'))
+    retry_interval = retry_interval or int(os.environ.get('DB_RETRY_INTERVAL', '1'))
     
     while retries < max_retries:
         try:
@@ -55,7 +50,7 @@ def wait_for_db(max_retries=None, retry_interval=None):
                     password=os.environ.get('DB_PASSWORD', 'Valar9876@'),
                     host=os.environ.get('DB_HOST', '34.87.166.243'),
                     port=os.environ.get('DB_PORT', '5432'),
-                    connect_timeout=DB_CONNECTION_TIMEOUT
+                    connect_timeout=int(os.environ.get('DB_CONNECTION_TIMEOUT', '5'))
                 )
                 conn.close()
                 logger.info("Database connection successful")
@@ -81,6 +76,7 @@ def get_engine():
         return _engine
         
     database_url = get_db_url()
+    logger.info(f"Connecting to database: {database_url.split('@')[0]}@{database_url.split('@')[1] if '@' in database_url else 'localhost'}")
     
     if IS_PRODUCTION:
         # Wait for database to be available with shorter timeout
@@ -94,9 +90,9 @@ def get_engine():
         pool_size=1,            # Minimal pool size for serverless
         max_overflow=0,         # No overflow connections in serverless
         pool_recycle=30,        # Recycle connections after 30 seconds
-        pool_timeout=DB_CONNECTION_TIMEOUT,  # Connection timeout from env
+        pool_timeout=int(os.environ.get('DB_CONNECTION_TIMEOUT', '5')),  # Connection timeout from env
         connect_args={
-            "connect_timeout": DB_CONNECTION_TIMEOUT,  # PostgreSQL connection timeout
+            "connect_timeout": int(os.environ.get('DB_CONNECTION_TIMEOUT', '5')),  # PostgreSQL connection timeout
             "keepalives": 1,         # Enable TCP keepalive
             "keepalives_idle": 5,    # Idle time before sending keepalive
             "keepalives_interval": 1, # Interval between keepalives
@@ -120,7 +116,6 @@ def get_session_local():
             autocommit=False,
             autoflush=False,
             bind=get_engine(),
-            # Set session timeout to be less than Vercel's function timeout
             expire_on_commit=False
         )
     return _SessionLocal
@@ -128,9 +123,8 @@ def get_session_local():
 @contextmanager
 def get_db():
     """Get database session with automatic cleanup"""
-    if not IS_PRODUCTION:
-        # For local development, create tables if they don't exist
-        Base.metadata.create_all(bind=get_engine())
+    # Create tables if they don't exist
+    Base.metadata.create_all(bind=get_engine())
         
     SessionLocal = get_session_local()
     db = SessionLocal()
