@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 from . import models, auth, email_utils
@@ -26,92 +26,15 @@ import time
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Create database tables with retry logic
-def init_db(retries=5, delay=2):
-    """Initialize database with retry logic"""
-    for attempt in range(retries):
-        try:
-            logger.info(f"Attempting to create database tables (attempt {attempt + 1}/{retries})...")
-            models.Base.metadata.create_all(bind=get_engine())
-            logger.info("Database tables created successfully")
-            
-            # Create initial data
-            SessionLocal = get_session_local()
-            db = SessionLocal()
-            try:
-                # Check if admin user exists
-                admin = db.query(models.User).filter(models.User.is_admin == True).first()
-                if not admin:
-                    # Create admin user
-                    admin = models.User(
-                        email="admin@payzen.com",
-                        username="admin",
-                        hashed_password=auth.get_password_hash("admin123"),
-                        is_active=True,
-                        is_admin=True,
-                        reward_points=1000
-                    )
-                    db.add(admin)
-                    db.commit()
-                    logger.info("Admin user created successfully")
-                
-                # Check if rewards exist
-                rewards = db.query(models.Reward).first()
-                if not rewards:
-                    # Add sample rewards
-                    sample_rewards = [
-                        models.Reward(
-                            name="Amazon Gift Card",
-                            description="₹500 Amazon Gift Card",
-                            points_required=1000,
-                            is_active=True
-                        ),
-                        models.Reward(
-                            name="Movie Tickets",
-                            description="2 Movie Tickets worth ₹300 each",
-                            points_required=500,
-                            is_active=True
-                        ),
-                        models.Reward(
-                            name="Food Voucher",
-                            description="₹200 Food Delivery Voucher",
-                            points_required=300,
-                            is_active=True
-                        )
-                    ]
-                    for reward in sample_rewards:
-                        db.add(reward)
-                    db.commit()
-                    logger.info("Sample rewards created successfully")
-            finally:
-                db.close()
-            
-            return
-        except Exception as e:
-            logger.error(f"Error creating database tables (attempt {attempt + 1}): {str(e)}")
-            if attempt == retries - 1:  # Last attempt
-                logger.error(traceback.format_exc())
-                raise
-            time.sleep(delay)  # Wait before retrying
-
-# Initialize database on startup
-init_db()
-
-# Dependency for database sessions
-def get_db_session():
-    """Get database session for dependency injection"""
-    SessionLocal = get_session_local()
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 app = FastAPI(
     title="PayZen",
     description="A bill payment and rewards management system",
     debug=True  # Enable debug mode
 )
+
+@app.get("/test")
+async def test_route():
+    return {"status": "ok", "message": "PayZen API is working!"}
 
 # Get the absolute path to the static and templates directories
 STATIC_DIR = str(pathlib.Path(__file__).parent / "static")
