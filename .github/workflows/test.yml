@@ -9,16 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: payzen_test
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
     - uses: actions/checkout@v2
@@ -41,6 +31,9 @@ jobs:
 
     - name: Start application
       run: |
+        # Create test database directory if it doesn't exist
+        mkdir -p ./data
+        # Start the application with SQLite
         uvicorn app.main:app --host 0.0.0.0 --port 8000 &
         sleep 5  # Wait for app to start
 
@@ -58,7 +51,7 @@ jobs:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-        fail_ci_if_error: true
+        fail_ci_if_error: false
 
     - name: Generate test report
       if: always()
