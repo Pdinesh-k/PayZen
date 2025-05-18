@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - PayZen{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-user-shield"></i> Admin Dashboard</h2>
+        </div>
+        <div class="col text-end">
+            <button class="btn btn-success" onclick="exportData('users')">
+                <i class="fas fa-download"></i> Export Users
+            </button>
+            <button class="btn btn-info" onclick="exportData('bills')">
+                <i class="fas fa-download"></i> Export Bills
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Users</h5>
+                    <h2 class="card-text">{{ stats.total_users }}</h2>
+                    <p class="card-text">
+                        <small>Active: {{ stats.active_users }}</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Due Bills</h5>
+                    <h2 class="card-text">{{ stats.due_bills }}</h2>
+                    <p class="card-text">
+                        <small>Total Amount: ₹{{ stats.due_amount }}</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Rewards Issued</h5>
+                    <h2 class="card-text">{{ stats.rewards_issued }}</h2>
+                    <p class="card-text">
+                        <small>Points in Circulation: {{ stats.total_points }}</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Bills</h5>
+                    <h2 class="card-text">{{ stats.total_bills }}</h2>
+                    <p class="card-text">
+                        <small>Paid: {{ stats.paid_bills }}</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Charts -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Bill Payment Trends</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="billTrendsChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Reward Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="rewardDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Users</h5>
+                    <div class="input-group w-25">
+                        <input type="text" class="form-control" id="userSearch" placeholder="Search users...">
+                        <button class="btn btn-outline-secondary" type="button" onclick="searchUsers()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Points</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.reward_points }}</td>
+                                    <td>
+                                        {% if user.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="toggleUserStatus('{{ user.id }}')">
+                                                Toggle Status
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-info" onclick="viewUserDetails('{{ user.id }}')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Bill Payments</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Bill</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bill in recent_bills %}
+                                <tr>
+                                    <td>{{ bill.owner.username }}</td>
+                                    <td>{{ bill.biller_name }}</td>
+                                    <td>₹{{ bill.amount }}</td>
+                                    <td>{{ bill.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        {% if bill.is_paid %}
+                                        <span class="badge bg-success">Paid</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Reward Claims</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Reward</th>
+                                    <th>Points</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for claim in recent_claims %}
+                                <tr>
+                                    <td>{{ claim.user.username }}</td>
+                                    <td>{{ claim.reward.name }}</td>
+                                    <td>{{ claim.points_used }}</td>
+                                    <td>{{ claim.claimed_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        {% if claim.is_used %}
+                                        <span class="badge bg-secondary">Used</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">User Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userDetailsContent">
+                Loading...
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+<script>
+// Toggle user status
+async function toggleUserStatus(userId) {
+    try {
+        const response = await fetch(`/admin/users/${userId}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to update user status');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred');
+    }
+}
+
+// View user details
+async function viewUserDetails(userId) {
+    const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+    try {
+        const response = await fetch(`/admin/users/${userId}/details`);
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('userDetailsContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>User Information</h6>
+                        <p><strong>Username:</strong> ${data.username}</p>
+                        <p><strong>Email:</strong> ${data.email}</p>
+                        <p><strong>Points:</strong> ${data.reward_points}</p>
+                        <p><strong>Status:</strong> ${data.is_active ? 'Active' : 'Inactive'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Activity Summary</h6>
+                        <p><strong>Total Bills:</strong> ${data.total_bills}</p>
+                        <p><strong>Paid Bills:</strong> ${data.paid_bills}</p>
+                        <p><strong>Rewards Claimed:</strong> ${data.rewards_claimed}</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            document.getElementById('userDetailsContent').innerHTML = 'Failed to load user details';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('userDetailsContent').innerHTML = 'An error occurred';
+    }
+    modal.show();
+}
+
+// Export data
+function exportData(type) {
+    window.location.href = `/admin/export/${type}`;
+}
+
+// Search users
+function searchUsers() {
+    const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const username = row.cells[0].textContent.toLowerCase();
+        const email = row.cells[1].textContent.toLowerCase();
+        if (username.includes(searchTerm) || email.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Initialize charts
+document.addEventListener('DOMContentLoaded', function() {
+    // Bill Payment Trends Chart
+    const billTrendsCtx = document.getElementById('billTrendsChart').getContext('2d');
+    new Chart(billTrendsCtx, {
+        type: 'line',
+        data: {
+            labels: {{ stats.bill_dates | tojson }},
+            datasets: [{
+                label: 'Paid Bills',
+                data: {{ stats.bill_counts | tojson }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        }
+    });
+
+    // Reward Distribution Chart
+    const rewardDistCtx = document.getElementById('rewardDistributionChart').getContext('2d');
+    new Chart(rewardDistCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ stats.reward_names | tojson }},
+            datasets: [{
+                data: {{ stats.reward_claims | tojson }},
+                backgroundColor: [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 205, 86)'
+                ]
+            }]
+        }
+    });
+});
+</script>
+{% endblock %} 

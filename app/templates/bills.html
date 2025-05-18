@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Bills - PayZen{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Flash Message -->
+    <div id="flashMessage" class="alert alert-success alert-dismissible fade show d-none" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <span id="flashMessageText"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-0">Bills Management</h2>
+                    <p class="text-muted">Manage and track all your bills in one place</p>
+                </div>
+                <a href="/bills/add" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Add New Bill
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <select class="form-select" id="statusFilter">
+                                <option value="all">All Status</option>
+                                <option value="paid">Paid</option>
+                                <option value="pending">Pending</option>
+                                <option value="overdue">Overdue</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="typeFilter">
+                                <option value="all">All Types</option>
+                                <option value="Electricity">Electricity</option>
+                                <option value="Water">Water</option>
+                                <option value="Internet">Internet</option>
+                                <option value="Phone">Phone</option>
+                                <option value="Credit Card">Credit Card</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchBills" placeholder="Search bills...">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="sortBy">
+                                <option value="date-asc">Date ↑</option>
+                                <option value="date-desc">Date ↓</option>
+                                <option value="amount-asc">Amount ↑</option>
+                                <option value="amount-desc">Amount ↓</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bills List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="billsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Biller</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bill in bills %}
+                                <tr class="bill-row" data-status="{{ 'paid' if bill.is_paid else 'pending' }}" 
+                                    data-type="{{ bill.bill_type }}" data-amount="{{ bill.amount }}"
+                                    data-date="{{ bill.due_date.strftime('%Y-%m-%d') }}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+                                            {{ bill.biller_name }}
+                                        </div>
+                                    </td>
+                                    <td>{{ bill.bill_type }}</td>
+                                    <td>₹{{ "%.2f"|format(bill.amount) }}</td>
+                                    <td>
+                                        <span class="{% if bill.due_date < now %}text-danger{% endif %}">
+                                            {{ bill.due_date.strftime('%Y-%m-%d') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if bill.is_paid %}
+                                            <span class="badge bg-success">Paid</span>
+                                        {% else %}
+                                            {% if bill.due_date < now %}
+                                                <span class="badge bg-danger">Overdue</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Pending</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group">
+                                            <a href="/bills/{{ bill.id }}/edit" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if not bill.is_paid %}
+                                            <form action="/bills/{{ bill.id }}/pay" method="POST" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check for flash message in cookie
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'flash_message') {
+            const flashMessage = document.getElementById('flashMessage');
+            const flashMessageText = document.getElementById('flashMessageText');
+            flashMessageText.textContent = decodeURIComponent(value);
+            flashMessage.classList.remove('d-none');
+            
+            // Remove the cookie
+            document.cookie = 'flash_message=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                const alert = new bootstrap.Alert(flashMessage);
+                alert.close();
+            }, 5000);
+        }
+    }
+
+    const statusFilter = document.getElementById('statusFilter');
+    const typeFilter = document.getElementById('typeFilter');
+    const searchInput = document.getElementById('searchBills');
+    const sortBy = document.getElementById('sortBy');
+    const billRows = document.querySelectorAll('.bill-row');
+
+    function filterBills() {
+        const status = statusFilter.value;
+        const type = typeFilter.value;
+        const search = searchInput.value.toLowerCase();
+
+        billRows.forEach(row => {
+            const rowStatus = row.dataset.status;
+            const rowType = row.dataset.type;
+            const rowText = row.textContent.toLowerCase();
+            
+            const statusMatch = status === 'all' || rowStatus === status;
+            const typeMatch = type === 'all' || rowType === type;
+            const searchMatch = search === '' || rowText.includes(search);
+
+            row.style.display = statusMatch && typeMatch && searchMatch ? '' : 'none';
+        });
+    }
+
+    function sortBills() {
+        const [criteria, direction] = sortBy.value.split('-');
+        const rows = Array.from(billRows);
+        
+        rows.sort((a, b) => {
+            let aValue = a.dataset[criteria];
+            let bValue = b.dataset[criteria];
+            
+            if (criteria === 'amount') {
+                aValue = parseFloat(aValue);
+                bValue = parseFloat(bValue);
+            }
+            
+            if (direction === 'asc') {
+                return aValue > bValue ? 1 : -1;
+            } else {
+                return aValue < bValue ? 1 : -1;
+            }
+        });
+
+        const tbody = document.querySelector('#billsTable tbody');
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    statusFilter.addEventListener('change', filterBills);
+    typeFilter.addEventListener('change', filterBills);
+    searchInput.addEventListener('input', filterBills);
+    sortBy.addEventListener('change', sortBills);
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.bill-row {
+    transition: background-color 0.2s;
+}
+
+.bill-row:hover {
+    background-color: rgba(0,123,255,0.05);
+}
+
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.75em;
+}
+
+.btn-group .btn {
+    margin: 0 2px;
+}
+
+.form-select, .form-control {
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+}
+
+.input-group .input-group-text {
+    border-radius: 20px 0 0 20px;
+    background: transparent;
+}
+
+.input-group .form-control {
+    border-radius: 0 20px 20px 0;
+}
+
+/* Add styles for flash message */
+.alert {
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+</style>
+{% endblock %} 

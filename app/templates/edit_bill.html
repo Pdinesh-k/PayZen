@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Bill - PayZen{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Edit Bill</h2>
+                {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+                <form method="POST" action="/bills/{{ bill.id }}/edit">
+                    <div class="mb-3">
+                        <label for="biller_name" class="form-label">Biller Name</label>
+                        <input type="text" class="form-control" id="biller_name" name="biller_name" value="{{ bill.biller_name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="bill_type" class="form-label">Bill Type</label>
+                        <select class="form-select" id="bill_type" name="bill_type" required>
+                            <option value="">Select bill type</option>
+                            <option value="Electricity" {% if bill.bill_type == 'Electricity' %}selected{% endif %}>Electricity</option>
+                            <option value="Water" {% if bill.bill_type == 'Water' %}selected{% endif %}>Water</option>
+                            <option value="Phone" {% if bill.bill_type == 'Phone' %}selected{% endif %}>Phone</option>
+                            <option value="Internet" {% if bill.bill_type == 'Internet' %}selected{% endif %}>Internet</option>
+                            <option value="Credit Card" {% if bill.bill_type == 'Credit Card' %}selected{% endif %}>Credit Card</option>
+                            <option value="Other" {% if bill.bill_type == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" value="{{ "%.2f"|format(bill.amount) }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="due_date" class="form-label">Due Date</label>
+                        <input type="date" class="form-control" id="due_date" name="due_date" value="{{ bill.due_date.strftime('%Y-%m-%d') }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reminder_frequency" class="form-label">Reminder Frequency (days)</label>
+                        <select class="form-select" id="reminder_frequency" name="reminder_frequency" required>
+                            <option value="1" {% if bill.reminder_frequency == 1 %}selected{% endif %}>1 day before</option>
+                            <option value="3" {% if bill.reminder_frequency == 3 %}selected{% endif %}>3 days before</option>
+                            <option value="7" {% if bill.reminder_frequency == 7 %}selected{% endif %}>7 days before</option>
+                            <option value="14" {% if bill.reminder_frequency == 14 %}selected{% endif %}>14 days before</option>
+                            <option value="30" {% if bill.reminder_frequency == 30 %}selected{% endif %}>30 days before</option>
+                        </select>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Update Bill</button>
+                        <a href="/bills" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

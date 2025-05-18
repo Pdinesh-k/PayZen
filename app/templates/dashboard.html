@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - PayZen{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-primary text-white shadow-lg border-0">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <h2 class="fw-bold mb-2">Welcome, {{ user.username }}!</h2>
+                            <p class="mb-0">Track your bills and rewards all in one place</p>
+                        </div>
+                        <div class="ms-auto text-end">
+                            <h3 class="mb-0">{{ user.reward_points }}</h3>
+                            <small>PayZen Points</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Quick Actions</h5>
+                        <div>
+                            <a href="/bills/add" class="btn btn-primary me-2">
+                                <i class="fas fa-plus me-2"></i>Add Bill
+                            </a>
+                            <a href="/rewards" class="btn btn-outline-primary">
+                                <i class="fas fa-gift me-2"></i>View Rewards
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bills and Rewards Overview -->
+    <div class="row g-4">
+        <!-- Upcoming Bills -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">Upcoming Bills</h5>
+                </div>
+                <div class="card-body">
+                    {% if bills %}
+                        {% for bill in bills %}
+                            {% if not bill.is_paid %}
+                                <div class="bill-item mb-3 p-3 rounded {% if bill.due_date < now %}overdue{% endif %}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ bill.biller_name }}</h6>
+                                            <p class="mb-0 text-muted small">
+                                                <i class="fas fa-calendar me-1"></i>
+                                                Due: {{ bill.due_date.strftime('%Y-%m-%d') }}
+                                            </p>
+                                        </div>
+                                        <div class="text-end">
+                                            <h6 class="mb-1">₹{{ "%.2f"|format(bill.amount) }}</h6>
+                                            <form action="/bills/{{ bill.id }}/pay" method="POST" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="fas fa-check me-1"></i>Pay Now
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <p class="mb-0">No upcoming bills!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Rewards Overview -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">Rewards Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="display-4 fw-bold text-primary">{{ user.reward_points }}</div>
+                        <p class="text-muted">Available Points</p>
+                    </div>
+                    
+                    {% if rewards %}
+                        <div class="list-group list-group-flush">
+                            {% for reward in rewards[:3] %}
+                                <div class="list-group-item border-0 px-0">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ reward.name }}</h6>
+                                            <small class="text-muted">{{ reward.points_required }} points</small>
+                                        </div>
+                                        <a href="/rewards/{{ reward.id }}/claim" class="btn btn-sm btn-outline-primary">
+                                            Claim
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="/rewards" class="btn btn-link text-primary">View All Rewards</a>
+                        </div>
+                    {% else %}
+                        <div class="text-center">
+                            <p class="text-muted mb-0">No rewards available</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bill-item {
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+
+.bill-item:hover {
+    transform: translateX(5px);
+}
+
+.bill-item.overdue {
+    border-left-color: #dc3545;
+}
+
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %} 

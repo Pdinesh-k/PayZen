@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}{% if bill %}Edit{% else %}Add{% endif %} Bill - PayZen{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-file-invoice-dollar fa-3x text-primary mb-3"></i>
+                        <h2 class="fw-bold">{% if bill %}Edit{% else %}Add New{% endif %} Bill</h2>
+                        <p class="text-muted">Enter the bill details below</p>
+                    </div>
+
+                    {% if error %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        {{ error }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" class="needs-validation" novalidate>
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="biller_name" name="biller_name" 
+                                           placeholder="Biller Name" value="{{ bill.biller_name if bill else '' }}" required>
+                                    <label for="biller_name">
+                                        <i class="fas fa-building me-2"></i>Biller Name
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please enter the biller name
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <select class="form-select" id="bill_type" name="bill_type" required>
+                                        <option value="" disabled {% if not bill %}selected{% endif %}>Select bill type</option>
+                                        {% for type in ['Electricity', 'Water', 'Internet', 'Phone', 'Credit Card', 'Other'] %}
+                                            <option value="{{ type }}" {% if bill and bill.bill_type == type %}selected{% endif %}>
+                                                {{ type }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <label for="bill_type">
+                                        <i class="fas fa-tag me-2"></i>Bill Type
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please select a bill type
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input type="number" class="form-control" id="amount" name="amount" 
+                                           placeholder="Amount" step="0.01" min="0"
+                                           value="{{ "%.2f"|format(bill.amount) if bill else '' }}" required>
+                                    <label for="amount">
+                                        <i class="fas fa-rupee-sign me-2"></i>Amount
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please enter a valid amount
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input type="date" class="form-control" id="due_date" name="due_date" 
+                                           placeholder="Due Date"
+                                           value="{{ bill.due_date.strftime('%Y-%m-%d') if bill else '' }}" required>
+                                    <label for="due_date">
+                                        <i class="fas fa-calendar me-2"></i>Due Date
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please select a due date
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    <input type="number" class="form-control" id="reminder_frequency" name="reminder_frequency" 
+                                           placeholder="Reminder Days" min="1" max="30"
+                                           value="{{ bill.reminder_frequency if bill else '3' }}" required>
+                                    <label for="reminder_frequency">
+                                        <i class="fas fa-bell me-2"></i>Reminder Days Before Due Date
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please enter a number between 1 and 30
+                                    </div>
+                                </div>
+                                <div class="form-text text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    You'll receive reminders these many days before the due date
+                                </div>
+                            </div>
+
+                            <div class="col-12 mt-4">
+                                <div class="d-flex justify-content-between">
+                                    <a href="/bills" class="btn btn-outline-secondary">
+                                        <i class="fas fa-arrow-left me-2"></i>Back to Bills
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>
+                                        {% if bill %}Update{% else %}Add{% endif %} Bill
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Form validation
+(function () {
+    'use strict'
+    const forms = document.querySelectorAll('.needs-validation')
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+
+    // Set minimum date to today
+    const dueDateInput = document.getElementById('due_date')
+    const today = new Date().toISOString().split('T')[0]
+    dueDateInput.setAttribute('min', today)
+})()
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-floating > label {
+    padding-left: 1.5rem;
+}
+
+.form-floating > .form-control,
+.form-floating > .form-select {
+    border-radius: 20px;
+    height: calc(3.5rem + 2px);
+    line-height: 1.25;
+}
+
+.form-floating > .form-control:focus,
+.form-floating > .form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.btn {
+    padding: 12px 30px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.card {
+    border-radius: 20px;
+}
+
+.form-text {
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    padding-left: 1rem;
+}
+</style>
+{% endblock %} 
