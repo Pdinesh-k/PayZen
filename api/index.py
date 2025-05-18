@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import sys
 import os
+import psycopg2
+import sqlalchemy.exc
 
 # Add the parent directory to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,6 +25,28 @@ try:
     @app.get("/api/healthcheck")
     async def healthcheck():
         return {"status": "ok"}
+
+    @app.middleware("http")
+    async def db_session_middleware(request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        except (psycopg2.OperationalError, sqlalchemy.exc.OperationalError) as e:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Database connection error. Please try again later.",
+                    "detail": str(e)
+                }
+            )
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "An unexpected error occurred.",
+                    "detail": str(e)
+                }
+            )
 
 except Exception as e:
     error_message = str(e)

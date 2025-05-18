@@ -34,7 +34,7 @@ def get_db_url():
         # Use SQLite locally
         return "sqlite:///./sql_app.db"
 
-def wait_for_db(max_retries=5, retry_interval=5):
+def wait_for_db(max_retries=3, retry_interval=1):
     """Wait for database to become available"""
     retries = 0
     while retries < max_retries:
@@ -47,7 +47,7 @@ def wait_for_db(max_retries=5, retry_interval=5):
                     password=os.environ.get('DB_PASSWORD', 'Valar9876@'),
                     host=os.environ.get('DB_HOST', '34.87.166.243'),
                     port=os.environ.get('DB_PORT', '5432'),
-                    connect_timeout=10
+                    connect_timeout=5
                 )
                 conn.close()
                 logger.info("Database connection successful")
@@ -82,17 +82,17 @@ def get_engine():
     # Configure engine with appropriate settings for serverless
     _engine = create_engine(
         database_url,
-        pool_pre_ping=True,  # Enable connection health checks
-        pool_size=1,         # Minimal pool size for serverless
-        max_overflow=2,      # Allow minimal overflow connections
-        pool_recycle=300,    # Recycle connections after 5 minutes
-        pool_timeout=30,     # Connection timeout of 30 seconds
+        pool_pre_ping=True,     # Enable connection health checks
+        pool_size=1,            # Minimal pool size for serverless
+        max_overflow=0,         # No overflow connections in serverless
+        pool_recycle=60,        # Recycle connections after 1 minute
+        pool_timeout=5,         # Connection timeout of 5 seconds
         connect_args={
-            "connect_timeout": 10,  # PostgreSQL connection timeout
-            "keepalives": 1,        # Enable TCP keepalive
-            "keepalives_idle": 30,  # Idle time before sending keepalive
-            "keepalives_interval": 10,  # Interval between keepalives
-            "keepalives_count": 5    # Number of keepalive attempts
+            "connect_timeout": 5,    # PostgreSQL connection timeout
+            "keepalives": 1,         # Enable TCP keepalive
+            "keepalives_idle": 5,    # Idle time before sending keepalive
+            "keepalives_interval": 1, # Interval between keepalives
+            "keepalives_count": 3     # Number of keepalive attempts
         } if IS_PRODUCTION else {}
     )
     
