@@ -3,28 +3,30 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Get database URL from environment variable
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./test.db")
+# Determine if we're running on Vercel
+IS_PRODUCTION = os.environ.get('VERCEL', False)
 
-# Handle special case for Postgres URLs
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if IS_PRODUCTION:
+    # Use PostgreSQL in production (Vercel)
+    DATABASE_URL = "postgresql://postgres:Valar9876@@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres?sslmode=require"
+else:
+    # Use SQLite in development
+    DATABASE_URL = "sqlite:///./test.db"
 
 # Configure SQLAlchemy engine
 if DATABASE_URL.startswith("sqlite"):
-    # SQLite configuration (for local development)
     engine = create_engine(
         DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    # PostgreSQL configuration (for production)
     engine = create_engine(
         DATABASE_URL,
         pool_size=1,  # Minimum pool size for serverless
         max_overflow=0,  # Disable overflow connections
         pool_timeout=30,  # Connection timeout in seconds
         pool_recycle=1800,  # Recycle connections every 30 minutes
-        pool_pre_ping=True  # Enable connection health checks
+        pool_pre_ping=True,  # Enable connection health checks
+        connect_args={"sslmode": "require"}  # Enable SSL mode for secure connection
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
