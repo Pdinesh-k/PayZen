@@ -8,7 +8,7 @@ IS_PRODUCTION = os.environ.get('VERCEL', False)
 
 if IS_PRODUCTION:
     # Use PostgreSQL in production (Vercel)
-    DATABASE_URL = "postgresql://postgres:Valar9876@@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres?sslmode=require"
+    DATABASE_URL = os.environ.get('DATABASE_URL', "postgresql://postgres:Valar9876@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres?sslmode=require")
 else:
     # Use SQLite in development
     DATABASE_URL = "sqlite:///./test.db"
