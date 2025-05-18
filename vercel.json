@@ -3,24 +3,20 @@
     "builds": [
         {
             "src": "api/index.py",
-            "use": "@vercel/python"
-        },
-        {
-            "src": "app/static/**",
-            "use": "@vercel/static"
+            "use": "@vercel/python",
+            "config": {
+                "maxLambdaSize": "15mb",
+                "runtime": "python3.9"
+            }
         }
     ],
     "routes": [
-        {
-            "src": "/static/(.*)",
-            "dest": "/app/static/$1"
-        },
         {
             "src": "/(.*)",
             "dest": "api/index.py"
         }
     ],
     "env": {
-        "APP_MODULE": "app.main:app"
+        "PYTHONPATH": "."
     }
 } 
