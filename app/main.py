@@ -26,7 +26,13 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create database tables
-models.Base.metadata.create_all(bind=engine)
+try:
+    logger.info("Attempting to create database tables...")
+    models.Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created successfully")
+except Exception as e:
+    logger.error(f"Error creating database tables: {str(e)}")
+    logger.error(traceback.format_exc())
 
 app = FastAPI(
     title="PayZen",

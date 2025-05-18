@@ -26,6 +26,7 @@ else:
     # PostgreSQL configuration optimized for serverless
     engine = create_engine(
         DATABASE_URL,
+        echo=True,  # Enable SQL logging
         pool_pre_ping=True,  # Enable connection health checks
         pool_size=1,  # Minimize connections for serverless
         max_overflow=0,  # Disable overflow connections
@@ -33,11 +34,12 @@ else:
         pool_timeout=30,  # Connection timeout in seconds
         connect_args={
             "sslmode": "require",  # Force SSL connection
-            "connect_timeout": 60,  # Increase connection timeout
+            "connect_timeout": 30,  # Connection timeout
             "keepalives": 1,  # Enable keepalive
-            "keepalives_idle": 60,  # Idle time before sending keepalive
+            "keepalives_idle": 30,  # Idle time before sending keepalive
             "keepalives_interval": 10,  # Interval between keepalives
-            "keepalives_count": 3,  # Number of keepalive retries
+            "keepalives_count": 5,  # Number of keepalive retries
+            "options": "-c statement_timeout=30000",  # 30 second statement timeout
             "application_name": "vercel_serverless"  # Identify the application
         }
     )
