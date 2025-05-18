@@ -12,18 +12,7 @@ IS_PRODUCTION = os.environ.get('VERCEL', False)
 
 if IS_PRODUCTION:
     # Use PostgreSQL in production (Vercel)
-    # Get database credentials from environment variables or use defaults
-    db_user = os.environ.get('POSTGRES_USER', 'postgres')
-    db_password = os.environ.get('POSTGRES_PASSWORD')  # This should be set in environment variables
-    db_host = os.environ.get('POSTGRES_HOST', 'db.yaegkkmbsxqpbjmjdqwu.supabase.co')
-    db_port = os.environ.get('POSTGRES_PORT', '5432')
-    db_name = os.environ.get('POSTGRES_DATABASE', 'postgres')
-    
-    # Construct Supabase connection string
-    if not db_password:
-        raise ValueError("Database password must be set in environment variables")
-    
-    DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    DATABASE_URL = os.environ.get('DATABASE_URL', "postgresql://postgres:Valar9876%40@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres")
     
     # Add required SSL mode for Supabase
     if '?' not in DATABASE_URL:
