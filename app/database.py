@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 import time
 import logging
+from urllib.parse import quote_plus
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -18,7 +19,8 @@ IS_PRODUCTION = os.environ.get('VERCEL') == '1'
 
 if IS_PRODUCTION:
     # Use PostgreSQL in production (Vercel)
-    DATABASE_URL = os.environ.get('DATABASE_URL', "postgresql://postgres:Valar9876%40@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres")
+    password = quote_plus("Valar9876@")  # URL encode the password
+    DATABASE_URL = f"postgresql://postgres:{password}@db.yaegkkmbsxqpbjmjdqwu.supabase.co:5432/postgres"
 else:
     # Use SQLite in development
     DATABASE_URL = "sqlite:///./test.db"
@@ -44,8 +46,17 @@ def get_engine(retries=3):
                     connect_args={
                         "sslmode": "require",  # Force SSL connection
                         "connect_timeout": 30,  # Connection timeout
+                        "keepalives": 1,  # Enable TCP keepalive
+                        "keepalives_idle": 60,  # Idle time before sending keepalive
+                        "keepalives_interval": 10,  # Interval between keepalives
+                        "keepalives_count": 3,  # Number of keepalive retries
                         "options": "-c statement_timeout=30000",  # 30 second statement timeout
-                        "application_name": "vercel_serverless"  # Identify the application
+                        "application_name": "vercel_serverless",  # Identify the application
+                        "host": "db.yaegkkmbsxqpbjmjdqwu.supabase.co",  # Explicitly set host
+                        "port": "5432",  # Explicitly set port
+                        "user": "postgres",  # Explicitly set user
+                        "password": "Valar9876@",  # Explicitly set password
+                        "database": "postgres"  # Explicitly set database
                     }
                 )
         except Exception as e:
