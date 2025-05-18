@@ -15,7 +15,20 @@ if IS_PRODUCTION:
     # Try both environment variable names
     DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
     if not DATABASE_URL:
-        raise ValueError("Neither DATABASE_URL nor POSTGRES_URL environment variable is set in production")
+        # Fallback to constructing URL from components
+        db_user = os.environ.get('POSTGRES_USER', 'postgres')
+        db_password = os.environ.get('POSTGRES_PASSWORD', 'Valar9876')
+        db_host = os.environ.get('POSTGRES_HOST', 'db.yaegkkmbsxqpbjmjdqwu.supabase.co')
+        db_port = os.environ.get('POSTGRES_PORT', '5432')
+        db_name = os.environ.get('POSTGRES_DATABASE', 'postgres')
+        
+        DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    
+    # Ensure SSL mode is set
+    if '?' not in DATABASE_URL:
+        DATABASE_URL += "?sslmode=require"
+    elif 'sslmode=' not in DATABASE_URL:
+        DATABASE_URL += "&sslmode=require"
 else:
     # Use SQLite in development
     DATABASE_URL = "sqlite:///./test.db"
