@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import timedelta, datetime
 from . import models, auth, email_utils
 from .database import get_engine, get_session_local, Base
@@ -106,8 +107,8 @@ async def startup_event():
         # Test database connection
         db = next(get_db_session())
         try:
-            # Try a simple query
-            db.execute("SELECT 1")
+            # Try a simple query using text()
+            db.execute(text("SELECT 1"))
             logger.info("Database connection test successful")
         finally:
             db.close()

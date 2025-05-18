@@ -4,32 +4,32 @@ services:
     env: python
     region: oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn api.index:app --host 0.0.0.0 --port $PORT --workers 1
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.9
       - key: PYTHONPATH
         value: .
       - key: PORT
         value: 8000
       - key: RENDER
-        value: 1
+        value: "1"
       - key: DB_HOST
-        value: 34.87.166.243
+        value: "34.87.166.243"
       - key: DB_PORT
-        value: 5432
+        value: "5432"
       - key: DB_NAME
-        value: postgres
+        value: "postgres"
       - key: DB_USER
-        value: postgres
+        value: "postgres"
       - key: DB_PASSWORD
-        value: Valar9876@
+        value: "Valar9876@"
       - key: DB_CONNECTION_TIMEOUT
-        value: 5
+        value: "5"
       - key: DB_MAX_RETRIES
-        value: 3
+        value: "3"
       - key: DB_RETRY_INTERVAL
-        value: 1
+        value: "1"
     healthCheckPath: /api/healthcheck
     plan: free
     autoDeploy: true 
