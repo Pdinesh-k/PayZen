@@ -20,19 +20,35 @@ import csv
 from io import StringIO
 import json
 import pathlib
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Create database tables
+# Create database tables with retry logic
+def init_db(retries=3):
+    """Initialize database with retry logic"""
+    for attempt in range(retries):
+        try:
+            logger.info(f"Attempting to create database tables (attempt {attempt + 1}/{retries})...")
+            models.Base.metadata.create_all(bind=engine)
+            logger.info("Database tables created successfully")
+            return
+        except Exception as e:
+            logger.error(f"Error creating database tables (attempt {attempt + 1}): {str(e)}")
+            if attempt == retries - 1:  # Last attempt
+                logger.error(traceback.format_exc())
+                raise
+            time.sleep(1)  # Wait before retrying
+
+# Initialize database
 try:
-    logger.info("Attempting to create database tables...")
-    models.Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created successfully")
+    init_db()
 except Exception as e:
-    logger.error(f"Error creating database tables: {str(e)}")
-    logger.error(traceback.format_exc())
+    logger.error(f"Failed to initialize database: {str(e)}")
+    # Don't raise the exception here, let the application start anyway
+    # The tables will be created when they're first accessed
 
 app = FastAPI(
     title="PayZen",
