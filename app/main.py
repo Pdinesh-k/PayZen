@@ -19,6 +19,7 @@ from functools import wraps
 import csv
 from io import StringIO
 import json
+import pathlib
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -33,11 +34,15 @@ app = FastAPI(
     debug=True  # Enable debug mode
 )
 
+# Get the absolute path to the static and templates directories
+STATIC_DIR = str(pathlib.Path(__file__).parent / "static")
+TEMPLATES_DIR = str(pathlib.Path(__file__).parent / "templates")
+
 # Mount static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Templates configuration
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # CORS middleware configuration
 app.add_middleware(
