@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -44,10 +44,6 @@ def get_engine(retries=3):
                     connect_args={
                         "sslmode": "require",  # Force SSL connection
                         "connect_timeout": 30,  # Connection timeout
-                        "tcp_keepalives": 1,  # Enable TCP keepalives
-                        "tcp_keepalives_idle": 60,  # Idle time before sending keepalive
-                        "tcp_keepalives_interval": 10,  # Interval between keepalives
-                        "tcp_keepalives_count": 3,  # Number of keepalive retries
                         "options": "-c statement_timeout=30000",  # 30 second statement timeout
                         "application_name": "vercel_serverless"  # Identify the application
                     }
@@ -73,8 +69,8 @@ Base = declarative_base()
 def get_db():
     db = SessionLocal()
     try:
-        # Test the connection
-        db.execute("SELECT 1")
+        # Test the connection with proper text() wrapper
+        db.execute(text("SELECT 1"))
         yield db
     except Exception as e:
         logger.error(f"Database connection error in get_db: {str(e)}")
