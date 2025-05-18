@@ -17,4 +17,5 @@ playwright>=1.39.0
 selenium>=4.15.2
 appium-python-client>=2.11.1
 psycopg2-binary>=2.9.9
-python-dotenv>=1.0.0 
+python-dotenv>=1.0.0
+fastapi-mail>=1.4.1 
