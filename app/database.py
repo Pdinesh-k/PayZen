@@ -45,18 +45,12 @@ def get_engine(retries=3):
                     pool_timeout=30,  # Connection timeout in seconds
                     connect_args={
                         "sslmode": "require",  # Force SSL connection
-                        "connect_timeout": 30,  # Connection timeout
-                        "keepalives": 1,  # Enable TCP keepalive
-                        "keepalives_idle": 60,  # Idle time before sending keepalive
-                        "keepalives_interval": 10,  # Interval between keepalives
-                        "keepalives_count": 3,  # Number of keepalive retries
-                        "options": "-c statement_timeout=30000",  # 30 second statement timeout
-                        "application_name": "vercel_serverless",  # Identify the application
-                        "host": "db.yaegkkmbsxqpbjmjdqwu.supabase.co",  # Explicitly set host
-                        "port": "5432",  # Explicitly set port
-                        "user": "postgres",  # Explicitly set user
-                        "password": "Valar9876@",  # Explicitly set password
-                        "database": "postgres"  # Explicitly set database
+                        "connect_timeout": "30",  # Connection timeout in seconds
+                        "keepalives": "1",  # Enable TCP keepalive
+                        "keepalives_idle": "60",  # Idle time before sending keepalive
+                        "keepalives_interval": "10",  # Interval between keepalives
+                        "keepalives_count": "3",  # Number of keepalive retries
+                        "application_name": "vercel_serverless"  # Identify the application
                     }
                 )
         except Exception as e:
