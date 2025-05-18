@@ -27,28 +27,78 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create database tables with retry logic
-def init_db(retries=3):
+def init_db(retries=5, delay=2):
     """Initialize database with retry logic"""
     for attempt in range(retries):
         try:
             logger.info(f"Attempting to create database tables (attempt {attempt + 1}/{retries})...")
             models.Base.metadata.create_all(bind=engine)
             logger.info("Database tables created successfully")
+            
+            # Create initial data
+            db = next(get_db())
+            try:
+                # Check if admin user exists
+                admin = db.query(models.User).filter(models.User.is_admin == True).first()
+                if not admin:
+                    # Create admin user
+                    admin = models.User(
+                        email="admin@payzen.com",
+                        username="admin",
+                        hashed_password=auth.get_password_hash("admin123"),
+                        is_active=True,
+                        is_admin=True,
+                        reward_points=1000
+                    )
+                    db.add(admin)
+                    db.commit()
+                    logger.info("Admin user created successfully")
+                
+                # Check if rewards exist
+                rewards = db.query(models.Reward).first()
+                if not rewards:
+                    # Add sample rewards
+                    sample_rewards = [
+                        models.Reward(
+                            name="Amazon Gift Card",
+                            description="₹500 Amazon Gift Card",
+                            points_required=1000,
+                            is_active=True
+                        ),
+                        models.Reward(
+                            name="Movie Tickets",
+                            description="2 Movie Tickets worth ₹300 each",
+                            points_required=500,
+                            is_active=True
+                        ),
+                        models.Reward(
+                            name="Food Voucher",
+                            description="₹200 Food Delivery Voucher",
+                            points_required=300,
+                            is_active=True
+                        )
+                    ]
+                    for reward in sample_rewards:
+                        db.add(reward)
+                    db.commit()
+                    logger.info("Sample rewards created successfully")
+                
+            except Exception as e:
+                logger.error(f"Error creating initial data: {str(e)}")
+                db.rollback()
+            finally:
+                db.close()
+            
             return
         except Exception as e:
             logger.error(f"Error creating database tables (attempt {attempt + 1}): {str(e)}")
             if attempt == retries - 1:  # Last attempt
                 logger.error(traceback.format_exc())
                 raise
-            time.sleep(1)  # Wait before retrying
+            time.sleep(delay)  # Wait before retrying
 
-# Initialize database
-try:
-    init_db()
-except Exception as e:
-    logger.error(f"Failed to initialize database: {str(e)}")
-    # Don't raise the exception here, let the application start anyway
-    # The tables will be created when they're first accessed
+# Initialize database on startup
+init_db()
 
 app = FastAPI(
     title="PayZen",
