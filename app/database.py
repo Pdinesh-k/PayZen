@@ -18,7 +18,7 @@ load_dotenv()
 # Determine if we're running on Vercel
 IS_PRODUCTION = os.environ.get('VERCEL') == '1'
 
-def test_db_connection(host, port, timeout=5):
+def test_db_connection(host, port, timeout=10):
     """Test TCP connection to database"""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -48,7 +48,7 @@ else:
     # Use SQLite in development
     DATABASE_URL = "sqlite:///./test.db"
 
-def get_engine(retries=5):
+def get_engine(retries=3):
     """Create SQLAlchemy engine with retry logic"""
     last_exception = None
     
@@ -64,18 +64,23 @@ def get_engine(retries=5):
                     DATABASE_URL,
                     echo=True,  # Enable SQL logging
                     pool_pre_ping=True,  # Enable connection health checks
-                    pool_size=1,  # Minimize connections for serverless
-                    max_overflow=0,  # Disable overflow connections
-                    pool_recycle=300,  # Recycle connections every 5 minutes
-                    pool_timeout=10,  # Connection timeout
+                    pool_size=5,  # Increased pool size for better availability
+                    max_overflow=10,  # Allow some overflow connections
+                    pool_recycle=1800,  # Recycle connections every 30 minutes
+                    pool_timeout=30,  # Increased connection timeout
                     connect_args={
                         "sslmode": "require",  # Force SSL connection
-                        "connect_timeout": "10",  # Connection timeout in seconds
-                        "application_name": "vercel_serverless"  # Identify the application
+                        "connect_timeout": "30",  # Increased connection timeout
+                        "keepalives": "1",  # Enable TCP keepalives
+                        "keepalives_idle": "30",  # Idle time before sending keepalive
+                        "keepalives_interval": "10",  # Time between keepalives
+                        "keepalives_count": "3",  # Number of keepalive retries
+                        "tcp_user_timeout": "30000",  # TCP timeout in milliseconds
+                        "application_name": "vercel_serverless"
                     }
                 )
                 
-                # Test the connection
+                # Test the connection with increased timeout
                 with engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
                     logger.info("Successfully connected to database")
@@ -87,7 +92,7 @@ def get_engine(retries=5):
             if attempt == retries - 1:  # Last attempt
                 logger.error("All database connection attempts failed")
                 raise
-            time.sleep(2 ** attempt)  # Exponential backoff: 1, 2, 4, 8, 16 seconds
+            time.sleep(min(5, 2 ** attempt))  # Exponential backoff capped at 5 seconds
 
 # Create engine with retry logic
 try:
@@ -108,13 +113,17 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
-    db = SessionLocal()
-    try:
-        # Test the connection
-        db.execute(text("SELECT 1"))
-        yield db
-    except Exception as e:
-        logger.error(f"Database connection error in get_db: {str(e)}")
-        raise
-    finally:
-        db.close() 
+    for attempt in range(3):  # Try up to 3 times
+        try:
+            db = SessionLocal()
+            # Test the connection
+            db.execute(text("SELECT 1"))
+            yield db
+            break  # If successful, break the loop
+        except Exception as e:
+            logger.error(f"Database connection error in get_db (attempt {attempt + 1}): {str(e)}")
+            if attempt == 2:  # Last attempt
+                raise  # Re-raise the exception if all attempts fail
+            time.sleep(1)  # Wait before retrying
+        finally:
+            db.close() 
