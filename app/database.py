@@ -32,6 +32,7 @@ else:
         pool_recycle=1800,  # Recycle connections every 30 minutes
         pool_timeout=30,  # Connection timeout in seconds
         connect_args={
+            "sslmode": "require",  # Force SSL connection
             "connect_timeout": 60,  # Increase connection timeout
             "keepalives": 1,  # Enable keepalive
             "keepalives_idle": 60,  # Idle time before sending keepalive
