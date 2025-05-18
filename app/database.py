@@ -20,6 +20,11 @@ load_dotenv()
 # Determine if we're running on Vercel
 IS_PRODUCTION = os.environ.get('VERCEL') == '1'
 
+# Get database configuration from environment variables
+DB_CONNECTION_TIMEOUT = int(os.environ.get('DB_CONNECTION_TIMEOUT', '5'))
+DB_MAX_RETRIES = int(os.environ.get('DB_MAX_RETRIES', '3'))
+DB_RETRY_INTERVAL = int(os.environ.get('DB_RETRY_INTERVAL', '1'))
+
 def get_db_url():
     """Get database URL based on environment"""
     if IS_PRODUCTION:
@@ -34,9 +39,12 @@ def get_db_url():
         # Use SQLite locally
         return "sqlite:///./sql_app.db"
 
-def wait_for_db(max_retries=3, retry_interval=1):
+def wait_for_db(max_retries=None, retry_interval=None):
     """Wait for database to become available"""
     retries = 0
+    max_retries = max_retries or DB_MAX_RETRIES
+    retry_interval = retry_interval or DB_RETRY_INTERVAL
+    
     while retries < max_retries:
         try:
             # Try to connect using psycopg2 first
@@ -47,7 +55,7 @@ def wait_for_db(max_retries=3, retry_interval=1):
                     password=os.environ.get('DB_PASSWORD', 'Valar9876@'),
                     host=os.environ.get('DB_HOST', '34.87.166.243'),
                     port=os.environ.get('DB_PORT', '5432'),
-                    connect_timeout=5
+                    connect_timeout=DB_CONNECTION_TIMEOUT
                 )
                 conn.close()
                 logger.info("Database connection successful")
@@ -75,8 +83,8 @@ def get_engine():
     database_url = get_db_url()
     
     if IS_PRODUCTION:
-        # Wait for database to be available
-        if not wait_for_db():
+        # Wait for database to be available with shorter timeout
+        if not wait_for_db(max_retries=2, retry_interval=1):
             logger.warning("Proceeding without confirmed database connection")
     
     # Configure engine with appropriate settings for serverless
@@ -85,10 +93,10 @@ def get_engine():
         pool_pre_ping=True,     # Enable connection health checks
         pool_size=1,            # Minimal pool size for serverless
         max_overflow=0,         # No overflow connections in serverless
-        pool_recycle=60,        # Recycle connections after 1 minute
-        pool_timeout=5,         # Connection timeout of 5 seconds
+        pool_recycle=30,        # Recycle connections after 30 seconds
+        pool_timeout=DB_CONNECTION_TIMEOUT,  # Connection timeout from env
         connect_args={
-            "connect_timeout": 5,    # PostgreSQL connection timeout
+            "connect_timeout": DB_CONNECTION_TIMEOUT,  # PostgreSQL connection timeout
             "keepalives": 1,         # Enable TCP keepalive
             "keepalives_idle": 5,    # Idle time before sending keepalive
             "keepalives_interval": 1, # Interval between keepalives
@@ -108,7 +116,13 @@ def get_session_local():
     """Get session factory lazily"""
     global _SessionLocal
     if _SessionLocal is None:
-        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+        _SessionLocal = sessionmaker(
+            autocommit=False,
+            autoflush=False,
+            bind=get_engine(),
+            # Set session timeout to be less than Vercel's function timeout
+            expire_on_commit=False
+        )
     return _SessionLocal
 
 @contextmanager
