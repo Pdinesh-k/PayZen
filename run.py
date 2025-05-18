@@ -1,6 +1,9 @@
 import logging
 import traceback
 import time
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+import pathlib
 from app.main import app
 from app import models
 from app.database import engine
@@ -9,29 +12,15 @@ from app.database import engine
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Create database tables with retry logic
-def init_db(retries=3):
-    """Initialize database with retry logic"""
-    for attempt in range(retries):
-        try:
-            logger.info(f"Initializing database tables in run.py (attempt {attempt + 1}/{retries})...")
-            models.Base.metadata.create_all(bind=engine)
-            logger.info("Database tables created successfully in run.py")
-            return
-        except Exception as e:
-            logger.error(f"Error creating database tables in run.py (attempt {attempt + 1}): {str(e)}")
-            if attempt == retries - 1:  # Last attempt
-                logger.error(traceback.format_exc())
-                raise
-            time.sleep(1)  # Wait before retrying
+# Get the absolute path to the static and templates directories
+STATIC_DIR = str(pathlib.Path(__file__).parent / "app" / "static")
+TEMPLATES_DIR = str(pathlib.Path(__file__).parent / "app" / "templates")
 
-# Initialize database
-try:
-    init_db()
-except Exception as e:
-    logger.error(f"Failed to initialize database in run.py: {str(e)}")
-    # Don't raise the exception here, let the application start anyway
-    # The tables will be created when they're first accessed
+# Mount static files
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Templates configuration
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # This is used by Vercel
 app = app
