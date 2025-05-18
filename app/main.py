@@ -9,7 +9,7 @@ from datetime import timedelta, datetime
 from . import models, auth, email_utils
 from .database import get_engine, get_session_local
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 import re
 from .scheduler import init_scheduler
 import logging
@@ -81,16 +81,19 @@ async def startup_event():
     scheduler.start()
 
 # Pydantic models
-class UserCreate(BaseModel):
+class BaseModelWithConfig(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+class UserCreate(BaseModelWithConfig):
     email: EmailStr
     username: str
     password: str
 
-class Token(BaseModel):
+class Token(BaseModelWithConfig):
     access_token: str
     token_type: str
 
-class BillCreate(BaseModel):
+class BillCreate(BaseModelWithConfig):
     biller_name: str
     bill_type: str
     amount: float
