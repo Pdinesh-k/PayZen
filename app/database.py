@@ -24,9 +24,12 @@ def get_db_url():
     """Get database URL based on environment"""
     if IS_PRODUCTION:
         # Use PostgreSQL in production (Vercel)
-        password = quote_plus("Valar9876@")  # URL encode the password
-        host = "34.87.166.243"
-        return f"postgresql://postgres:{password}@{host}:5432/postgres"
+        password = quote_plus(os.environ.get('DB_PASSWORD', 'Valar9876@'))
+        host = os.environ.get('DB_HOST', '34.87.166.243')
+        user = os.environ.get('DB_USER', 'postgres')
+        db_name = os.environ.get('DB_NAME', 'postgres')
+        port = os.environ.get('DB_PORT', '5432')
+        return f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
     else:
         # Use SQLite locally
         return "sqlite:///./sql_app.db"
@@ -39,11 +42,11 @@ def wait_for_db(max_retries=5, retry_interval=5):
             # Try to connect using psycopg2 first
             if IS_PRODUCTION:
                 conn = psycopg2.connect(
-                    dbname="postgres",
-                    user="postgres",
-                    password="Valar9876@",
-                    host="34.87.166.243",
-                    port="5432",
+                    dbname=os.environ.get('DB_NAME', 'postgres'),
+                    user=os.environ.get('DB_USER', 'postgres'),
+                    password=os.environ.get('DB_PASSWORD', 'Valar9876@'),
+                    host=os.environ.get('DB_HOST', '34.87.166.243'),
+                    port=os.environ.get('DB_PORT', '5432'),
                     connect_timeout=10
                 )
                 conn.close()
