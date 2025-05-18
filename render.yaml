@@ -4,10 +4,14 @@ services:
     env: python
     region: oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn api.index:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn api.index:app --host 0.0.0.0 --port $PORT --workers 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: PYTHONPATH
         value: .
-    plan: free 
+      - key: PORT
+        value: 8000
+    healthCheckPath: /api/healthcheck
+    plan: free
+    autoDeploy: true 
