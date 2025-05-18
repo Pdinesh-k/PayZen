@@ -1030,6 +1030,39 @@ async def export_data(
         logger.error(f"Error exporting data: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/admin/init/{username}")
+async def init_admin(
+    username: str,
+    request: Request,
+    db: Session = Depends(get_db_session)
+):
+    """Initialize the first admin user. This endpoint should be secured in production."""
+    try:
+        # Find user by username
+        user = db.query(models.User).filter(models.User.username == username).first()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail=f"User {username} not found")
+        
+        # Make user admin
+        user.is_admin = True
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Successfully made {username} an admin",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_admin": user.is_admin
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error making user admin: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
