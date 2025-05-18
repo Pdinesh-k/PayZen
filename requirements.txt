@@ -19,4 +19,5 @@ pytest-html>=4.1.1
 requests>=2.26.0
 playwright>=1.39.0
 selenium>=4.15.2
-appium-python-client>=2.11.1 
+appium-python-client>=2.11.1
+fastapi-mail==1.4.1 

@@ -1,4 +1,3 @@
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from typing import List
 from pydantic import EmailStr, BaseModel
 import os

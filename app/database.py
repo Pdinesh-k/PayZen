@@ -8,6 +8,7 @@ import logging
 from urllib.parse import quote_plus
 import socket
 import psycopg2
+from contextlib import contextmanager
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -58,9 +59,16 @@ def wait_for_db(max_retries=5, retry_interval=5):
     logger.error("Failed to connect to database after maximum retries")
     return False
 
-# Create SQLAlchemy engine with retry logic
+# Create engine lazily
+_engine = None
+
 def get_engine():
     """Get SQLAlchemy engine with connection pooling and retry logic"""
+    global _engine
+    
+    if _engine is not None:
+        return _engine
+        
     database_url = get_db_url()
     
     if IS_PRODUCTION:
@@ -69,12 +77,12 @@ def get_engine():
             logger.warning("Proceeding without confirmed database connection")
     
     # Configure engine with appropriate settings for serverless
-    engine = create_engine(
+    _engine = create_engine(
         database_url,
         pool_pre_ping=True,  # Enable connection health checks
-        pool_size=5,         # Smaller pool size for serverless
-        max_overflow=10,     # Allow some overflow connections
-        pool_recycle=1800,   # Recycle connections after 30 minutes
+        pool_size=1,         # Minimal pool size for serverless
+        max_overflow=2,      # Allow minimal overflow connections
+        pool_recycle=300,    # Recycle connections after 5 minutes
         pool_timeout=30,     # Connection timeout of 30 seconds
         connect_args={
             "connect_timeout": 10,  # PostgreSQL connection timeout
@@ -85,22 +93,35 @@ def get_engine():
         } if IS_PRODUCTION else {}
     )
     
-    return engine
-
-# Create engine instance
-engine = get_engine()
-
-# Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return _engine
 
 # Create base class for declarative models
 Base = declarative_base()
 
-# Dependency to get database session
+# Create session factory lazily
+_SessionLocal = None
+
+def get_session_local():
+    """Get session factory lazily"""
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+    return _SessionLocal
+
+@contextmanager
 def get_db():
     """Get database session with automatic cleanup"""
+    if not IS_PRODUCTION:
+        # For local development, create tables if they don't exist
+        Base.metadata.create_all(bind=get_engine())
+        
+    SessionLocal = get_session_local()
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        logger.error(f"Database session error: {str(e)}")
+        db.rollback()
+        raise
     finally:
         db.close()

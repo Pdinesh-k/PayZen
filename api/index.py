@@ -25,4 +25,5 @@ except Exception as e:
             "env_vars": dict(os.environ)
         }
 
-# This file is required for Vercel serverless deployment 
+# This file is specifically for Vercel deployment
+# It imports our FastAPI app from the main application file 

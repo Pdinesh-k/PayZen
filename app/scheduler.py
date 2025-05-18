@@ -3,7 +3,7 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from . import models, email_utils
-from .database import SessionLocal
+from .database import get_session_local
 import asyncio
 import logging
 
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def check_due_bills():
     """Check for bills that are due soon and send reminders."""
+    SessionLocal = get_session_local()
     db = SessionLocal()
     try:
         # Get all unpaid bills

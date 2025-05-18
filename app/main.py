@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 from . import models, auth, email_utils
-from .database import engine, get_db
+from .database import get_engine, get_session_local
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 import re
@@ -32,11 +32,12 @@ def init_db(retries=5, delay=2):
     for attempt in range(retries):
         try:
             logger.info(f"Attempting to create database tables (attempt {attempt + 1}/{retries})...")
-            models.Base.metadata.create_all(bind=engine)
+            models.Base.metadata.create_all(bind=get_engine())
             logger.info("Database tables created successfully")
             
             # Create initial data
-            db = next(get_db())
+            SessionLocal = get_session_local()
+            db = SessionLocal()
             try:
                 # Check if admin user exists
                 admin = db.query(models.User).filter(models.User.is_admin == True).first()
@@ -82,10 +83,6 @@ def init_db(retries=5, delay=2):
                         db.add(reward)
                     db.commit()
                     logger.info("Sample rewards created successfully")
-                
-            except Exception as e:
-                logger.error(f"Error creating initial data: {str(e)}")
-                db.rollback()
             finally:
                 db.close()
             
@@ -99,6 +96,16 @@ def init_db(retries=5, delay=2):
 
 # Initialize database on startup
 init_db()
+
+# Dependency for database sessions
+def get_db_session():
+    """Get database session for dependency injection"""
+    SessionLocal = get_session_local()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 app = FastAPI(
     title="PayZen",
@@ -173,6 +180,7 @@ async def root(request: Request):
 
 @app.get("/register")
 async def register_page(request: Request):
+    logger.debug("Register page accessed")
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/register")
@@ -182,8 +190,9 @@ async def register(
     username: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
+    logger.debug(f"Register attempt for email: {email}, username: {username}")
     # Validate input
     if password != confirm_password:
         return templates.TemplateResponse(
@@ -258,7 +267,7 @@ async def login(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     try:
         user = db.query(models.User).filter(models.User.username == username).first()
@@ -290,7 +299,7 @@ async def login(
         )
 
 @app.get("/dashboard")
-async def dashboard(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def dashboard(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     try:
         logger.debug(f"Dashboard access by user: {current_user.username}")
         user_bills = db.query(models.Bill).filter(models.Bill.owner_id == current_user.id).all()
@@ -328,7 +337,7 @@ async def add_bill(
     due_date: str = Form(...),
     reminder_frequency: int = Form(...),
     current_user = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     try:
         # Convert due_date string to datetime
@@ -378,7 +387,7 @@ async def edit_bill_page(
     bill_id: int,
     request: Request,
     current_user = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     bill = db.query(models.Bill).filter(
         models.Bill.id == bill_id,
@@ -407,7 +416,7 @@ async def edit_bill(
     due_date: str = Form(...),
     reminder_frequency: int = Form(...),
     current_user = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     bill = db.query(models.Bill).filter(
         models.Bill.id == bill_id,
@@ -443,43 +452,72 @@ async def pay_bill(
     bill_id: int,
     request: Request,
     current_user = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     try:
+        logger.debug(f"Processing bill payment for bill_id: {bill_id}")
+        logger.debug(f"Current user points before payment: {current_user.reward_points}")
+        
         bill = db.query(models.Bill).filter(
             models.Bill.id == bill_id,
             models.Bill.owner_id == current_user.id
         ).first()
         
         if not bill:
+            logger.error(f"Bill {bill_id} not found for user {current_user.id}")
             raise HTTPException(status_code=404, detail="Bill not found")
         
-        if not bill.is_paid:
-            points_earned = 10  # Base points for paying bill
+        if bill.is_paid:
+            logger.debug(f"Bill {bill_id} is already paid")
+            return RedirectResponse(url="/bills", status_code=303)
             
-            # Extra points for early payment
-            days_until_due = (bill.due_date - datetime.now()).days
-            if days_until_due > 5:
-                points_earned += 5  # Bonus points for early payment
+        points_earned = 10  # Base points for paying bill
+        logger.debug(f"Base points earned: {points_earned}")
+        
+        # Extra points for early payment
+        current_time = datetime.now()
+        if isinstance(bill.due_date, str):
+            due_date = datetime.strptime(bill.due_date, "%Y-%m-%d")
+        else:
+            due_date = bill.due_date
             
-            bill.is_paid = True
-            current_user.reward_points += points_earned
+        days_until_due = (due_date.date() - current_time.date()).days
+        logger.debug(f"Days until due: {days_until_due}")
+        
+        if days_until_due > 5:
+            points_earned += 5  # Bonus points for early payment
+            logger.debug(f"Added bonus points. Total points earned: {points_earned}")
+        
+        # Update bill status and user points
+        bill.is_paid = True
+        bill.paid_date = current_time
+        
+        # Refresh user from database to get latest points
+        current_user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        current_user.reward_points += points_earned
+        logger.debug(f"Updated user points. New total: {current_user.reward_points}")
+        
+        try:
             db.commit()
-            
-            # Flash message will be added to the session
-            response = RedirectResponse(url="/bills", status_code=303)
-            response.set_cookie(
-                "flash_message",
-                f"Bill paid successfully! You earned {points_earned} points.",
-                max_age=5
-            )
-            return response
+            logger.debug("Successfully committed changes to database")
+        except Exception as commit_error:
+            logger.error(f"Error committing changes: {str(commit_error)}")
+            db.rollback()
+            raise
         
-        return RedirectResponse(url="/bills", status_code=303)
-        
+        # Flash message will be added to the session
+        response = RedirectResponse(url="/bills", status_code=303)
+        response.set_cookie(
+            "flash_message",
+            f"Bill paid successfully! You earned {points_earned} points.",
+            max_age=5
+        )
+        return response
+    
     except Exception as e:
         logger.error(f"Error in pay_bill route: {str(e)}")
         logger.error(traceback.format_exc())
+        db.rollback()
         return templates.TemplateResponse(
             "error.html",
             {
@@ -494,7 +532,7 @@ async def claim_reward(
     reward_id: int,
     request: Request,
     current_user = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     reward = db.query(models.Reward).filter(
         models.Reward.id == reward_id,
@@ -548,7 +586,7 @@ async def logout(request: Request):
     return response
 
 @app.get("/bills")
-async def list_bills(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def list_bills(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     try:
         if not current_user:
             logger.debug("User not authenticated, redirecting to login")
@@ -582,7 +620,7 @@ async def list_bills(request: Request, current_user = Depends(auth.get_current_a
         )
 
 @app.get("/rewards")
-async def list_rewards(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def list_rewards(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     try:
         logger.debug(f"Rewards page access by user: {current_user.username}")
         
@@ -724,7 +762,7 @@ async def test_email(email: str):
 
 # API endpoints
 @app.post("/auth/register")
-async def register_api(user: UserCreate, db: Session = Depends(get_db)):
+async def register_api(user: UserCreate, db: Session = Depends(get_db_session)):
     # Check if email or username already exists
     if db.query(models.User).filter(models.User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -744,7 +782,7 @@ async def register_api(user: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 @app.post("/auth/login")
-async def login_api(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login_api(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db_session)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not auth.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -759,7 +797,7 @@ async def login_api(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/bills/")
-async def create_bill(bill: BillCreate, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def create_bill(bill: BillCreate, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     db_bill = models.Bill(
         biller_name=bill.biller_name,
         bill_type=bill.bill_type,
@@ -774,21 +812,21 @@ async def create_bill(bill: BillCreate, current_user = Depends(auth.get_current_
     return db_bill
 
 @app.get("/bills/")
-async def get_bills(current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def get_bills(current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     return db.query(models.Bill).filter(models.Bill.owner_id == current_user.id).all()
 
 @app.get("/rewards/points")
-async def get_points(current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def get_points(current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     return {"points": current_user.reward_points}
 
 @app.post("/rewards/add-points")
-async def add_points(points: dict, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def add_points(points: dict, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     current_user.reward_points += points["points"]
     db.commit()
     return {"success": True, "points": current_user.reward_points}
 
 @app.post("/rewards/redeem")
-async def redeem_reward(reward_data: dict, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+async def redeem_reward(reward_data: dict, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session)):
     if current_user.reward_points < reward_data["points_cost"]:
         raise HTTPException(status_code=400, detail="Insufficient points")
     
@@ -803,7 +841,7 @@ async def redeem_reward(reward_data: dict, current_user = Depends(auth.get_curre
 # Admin middleware
 def admin_required(func):
     @wraps(func)
-    async def wrapper(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db), *args, **kwargs):
+    async def wrapper(request: Request, current_user = Depends(auth.get_current_active_user), db: Session = Depends(get_db_session), *args, **kwargs):
         if not current_user or not current_user.is_admin:
             raise HTTPException(
                 status_code=403,
@@ -818,7 +856,7 @@ def admin_required(func):
 async def admin_dashboard(
     request: Request,
     current_user: models.User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     if not current_user.is_admin:
         raise HTTPException(
@@ -907,7 +945,7 @@ async def toggle_user_status(
     user_id: int,
     request: Request,
     current_user: models.User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     if not current_user.is_admin:
         raise HTTPException(
@@ -936,7 +974,7 @@ async def toggle_user_status(
 async def get_user_details(
     user_id: int,
     current_user: models.User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -975,7 +1013,7 @@ async def get_user_details(
 async def export_data(
     data_type: str,
     current_user: models.User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db_session)
 ):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")

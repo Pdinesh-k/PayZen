@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from fastapi.security.utils import get_authorization_scheme_param
 from fastapi.responses import RedirectResponse
 
-from .database import get_db
+from .database import get_session_local
 from . import models
 
 # Update these values in production
@@ -35,7 +35,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(request: Request, db: Session = Depends(get_db)):
+def get_db_session():
+    """Get database session for dependency injection"""
+    SessionLocal = get_session_local()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+async def get_current_user(request: Request, db: Session = Depends(get_db_session)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
