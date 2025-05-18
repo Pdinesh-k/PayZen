@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, JSON
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 from . import models, auth, email_utils
-from .database import get_engine, get_session_local
+from .database import get_engine, get_session_local, Base
 from .auth import get_db_session
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, ConfigDict
@@ -24,14 +24,29 @@ import pathlib
 import time
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
+# Initialize FastAPI app
 app = FastAPI(
     title="PayZen",
     description="A bill payment and rewards management system",
-    debug=True  # Enable debug mode
+    debug=True
 )
+
+# Initialize database
+try:
+    logger.info("Initializing database...")
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created successfully")
+except Exception as e:
+    logger.error(f"Error initializing database: {str(e)}")
+    logger.error(traceback.format_exc())
+    raise
 
 # Mount static directory
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
@@ -56,6 +71,7 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     try:
+        logger.info(f"Processing {request.method} request to {request.url.path}")
         response = await call_next(request)
         return response
     except Exception as e:
@@ -74,9 +90,31 @@ async def log_requests(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the scheduler on application startup."""
-    scheduler = init_scheduler()
-    scheduler.start()
+    """Initialize the application on startup."""
+    logger.info("Application starting up...")
+    try:
+        # Initialize scheduler
+        scheduler = init_scheduler()
+        scheduler.start()
+        logger.info("Scheduler initialized successfully")
+
+        # Ensure database and tables exist
+        engine = get_engine()
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+
+        # Test database connection
+        db = next(get_db_session())
+        try:
+            # Try a simple query
+            db.execute("SELECT 1")
+            logger.info("Database connection test successful")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error during startup: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise
 
 # Pydantic models
 class BaseModelWithConfig(BaseModel):
